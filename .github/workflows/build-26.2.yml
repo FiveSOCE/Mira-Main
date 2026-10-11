@@ -1,0 +1,61 @@
+name: Build Mira-Main 26.2 Baseline
+on:
+  push:
+    branches: ['develop/26.2-cannoning']
+    paths:
+      - '.github/workflows/build-26.2.yml'
+      - 'upstream-lock.yml'
+      - 'scripts/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    name: Build pinned Paper 26.2 baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Retrieve pinned Paper 26.2 source
+        run: |
+          git clone --filter=blob:none https://github.com/PaperMC/Paper.git upstream-paper
+          cd upstream-paper
+          git checkout 58e6e45d67c998909581f9079189ef51eb6f1267
+          test "$(git rev-parse HEAD)" = "58e6e45d67c998909581f9079189ef51eb6f1267"
+      - name: Apply Paper patches
+        working-directory: upstream-paper
+        run: ./gradlew applyPatches --no-daemon
+      - name: Compile runnable Paperclip JAR
+        working-directory: upstream-paper
+        run: ./gradlew createPaperclipJar --no-daemon
+      - name: Capture and validate JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          mapfile -t jars < <(find upstream-paper/paper-server/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*sources*' ! -name '*javadoc*' ! -name '*plain*' | sort)
+          printf '%s\n' "${jars[@]}"
+          if [ "${#jars[@]}" -ne 1 ]; then
+            echo "Expected exactly one Paperclip JAR; found ${#jars[@]}" >&2
+            exit 1
+          fi
+          cp "${jars[0]}" dist/Mira-Main-26.2-paper-baseline.jar
+          test -s dist/Mira-Main-26.2-paper-baseline.jar
+          jar tf dist/Mira-Main-26.2-paper-baseline.jar >/dev/null
+          sha256sum dist/*.jar | tee dist/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mira-Main-26.2-paper-baseline
+          path: dist/
+          if-no-files-found: error
+      - name: Publish baseline prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view paper-baseline-26.2 >/dev/null 2>&1 || gh release create paper-baseline-26.2 --prerelease --title 'Mira-Main 26.2 Paper baseline (not cannoning)' --notes 'Unmodified pinned Paper 26.2 baseline, not a Fuji/Sakura cannoning port. Upstream Paper LGPL/GPL and related license/notice obligations apply. Source: https://github.com/PaperMC/Paper/tree/58e6e45d67c998909581f9079189ef51eb6f1267' --target "$GITHUB_SHA"
+          gh release upload paper-baseline-26.2 dist/Mira-Main-26.2-paper-baseline.jar dist/SHA256SUMS --clobber
