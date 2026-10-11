@@ -1,0 +1,20 @@
+# Reproducible development source references.
+minecraft: "26.2"
+java: 25
+paper:
+  repo: https://github.com/PaperMC/Paper
+  branch: ver/26.2
+  commit: 58e6e45d67c998909581f9079189ef51eb6f1267
+fuji:
+  repo: https://github.com/BadgersMC/Fuji
+  branch: fuji
+  reference_commit: d4a3c686c6941013565bb1289555cd9666294292
+  base_minecraft: "1.21.11"
+sakura:
+  repo: https://github.com/Samsuik/Sakura
+  branch: ver/26.3.x
+  reference_commit: 442659590cdb67bf680ca96ca3d64644fba50a55
+  status: source-reference-only
+cannoning:
+  status: NOT_PORTED
+  profile_target: "classic-1.7-factions"
